@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installer Margin Calculator — Auto Max + Timeline</title>
+  <style>
+    :root { --bg:#0b1020; --card:#141b2d; --muted:#98a2b3; --text:#e6eaf2; --accent:#6ee7ff; --accent2:#a7f3d0; --warn:#fbbf24; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background: radial-gradient(1200px 600px at 20% -10%, rgba(110,231,255,.12), transparent), linear-gradient(180deg,#0b1020,#0f1530); color: var(--text); }
+    .wrap { max-width: 1200px; margin: 28px auto; padding: 0 16px; }
+    h1 { font-size: 26px; margin: 0 0 6px; font-weight: 800; }
+    .sub { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+    /* Always single-column layout */
+    .grid { display:grid; grid-template-columns: 1fr; gap: 16px; }
+    .card { background: rgba(20,27,45,.94); border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 16px; box-shadow: 0 16px 36px rgba(0,0,0,.25); }
+    .section { font-size: 12px; text-transform: uppercase; color: var(--muted); letter-spacing: 1.4px; margin: 4px 0 12px; }
+    .row { display:grid; grid-template-columns: 1fr 170px; gap: 8px; align-items:center; margin:8px 0; }
+    label { font-size: 13px; color: #d6dbe7; }
+    input, select { width:100%; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.12); background:#0e1427; color:var(--text); font-size:14px; }
+    input[type="checkbox"]{ width:18px; height:18px; }
+    .btns { display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+    button { background: linear-gradient(135deg, var(--accent), var(--accent2)); color:#001019; border:0; padding:10px 14px; border-radius: 12px; font-weight:700; cursor:pointer; }
+    button.secondary { background:#0e1427; color:var(--text); border:1px solid rgba(255,255,255,.12); }
+    .kpis { display:grid; grid-template-columns: 1fr; gap:12px; margin-top: 8px; }
+    @media(min-width:760px){ .kpis { grid-template-columns: repeat(3,1fr); }}
+    .kpi { background:#0e1427; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:14px; }
+    .kpi .label { font-size:12px; color:var(--muted); }
+    .kpi .value { font-size:22px; font-weight:800; margin-top:6px; }
+    .table { width:100%; border-collapse: collapse; margin-top: 12px; }
+    .table th, .table td { border-bottom: 1px dashed rgba(255,255,255,.12); padding: 10px 6px; text-align: right; font-variant-numeric: tabular-nums; }
+    .table th:first-child, .table td:first-child { text-align: left; }
+    .muted { color: var(--muted); font-size: 12px; }
+
+    /* Charts */
+    .charts { display:grid; grid-template-columns: 1fr; gap:14px; margin-top: 14px; }
+    @media(min-width:900px){ .charts { grid-template-columns: 1fr 1fr; }}
+    .chartCard { background:#0e1427; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:14px; }
+    canvas { width:100%; height:220px; display:block; }
+
+    /* Timeline */
+    .timelineCard { background:#0e1427; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:14px; margin-top:14px; }
+    .tl-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .segbar { display:flex; gap:4px; align-items:stretch; width:100%; height:18px; margin:10px 0 6px; }
+    .seg { border-radius: 8px; height:18px; border:1px solid rgba(255,255,255,.16); }
+    .legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+    .tag { font-size:11px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); padding:4px 8px; border-radius:999px; }
+    .stage-desc { margin-top: 10px; line-height: 1.4; }
+    .stage-desc p { margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Installer Margin Calculator — Auto Max + Timeline</h1>
+    <div class="sub">Auto-computes <b>Max TEPC</b> from SGIP (solar + storage), applies <b>ITC</b> automatically, graphs the cap test, and shows an <b>approval timeline</b> (PG&E / SCE) with fastest & average days. Supports <b>Advanced Payment</b> (50% of SGIP at Reservation).</div>
+
+    <div class="grid">
+      <!-- Inputs (top) -->
+      <div class="card">
+        <div class="section">Deal Basics</div>
+        <div class="row"><label>Solar Size (kW)</label><input id="kw" type="number" min="0" step="0.1" value="8"></div>
+        <div class="row"><label>Battery Count</label><input id="batts" type="number" min="0" step="1" value="3"></div>
+        <div class="row"><label>kWh per Battery</label><input id="kwhPerBatt" type="number" min="0" step="0.1" value="9.7"></div>
+
+        <div class="section" style="margin-top:10px">SGIP Incentive Rates</div>
+        <div class="row"><label>Solar Incentive ($/kW)</label><input id="solarRate" type="number" min="0" step="50" value="3100"></div>
+        <div class="row"><label>Storage Incentive ($/kWh)</label><input id="storageRate" type="number" min="0" step="50" value="1100"></div>
+        <div class="row"><label>Storage Cap ($)</label><input id="storageCap" type="number" min="0" step="100" value="33000"></div>
+
+        <div class="section" style="margin-top:10px">Pricing & Incentives</div>
+        <div class="row"><label><span title="Project price used by SGIP (Total Eligible Project Cost)">TEPC (Auto Max)</span></label><input id="tepc" type="number" min="0" step="100" value="81000"></div>
+        <div class="row"><label><input id="autoTepc" type="checkbox" checked> Auto-set to Max TEPC</label><span class="muted">(SGIP ÷ (1−ITC%))</span></div>
+        <div class="row"><label>ITC % (auto)</label><input id="itcPct" type="number" min="0" max="100" step="1" value="30"></div>
+        <div class="row"><label><input id="useAPP" type="checkbox" checked> Advanced Payment (APP) 50% of SGIP</label><span class="muted">Upfront cash at Reservation</span></div>
+
+        <div class="section" style="margin-top:10px">Cost Breakdown</div>
+        <div class="row"><label>Equipment (solar + batteries)</label><input id="costEquip" type="number" min="0" step="100" value="42000"></div>
+        <div class="row"><label>EPC Labor / Install</label><input id="costEPC" type="number" min="0" step="100" value="9000"></div>
+        <div class="row"><label>Permits / Interconnection</label><input id="costPermits" type="number" min="0" step="50" value="1000"></div>
+        <div class="row"><label>Overhead / Other</label><input id="costOther" type="number" min="0" step="50" value="2000"></div>
+
+        <div class="section" style="margin-top:10px">Commissions</div>
+        <div class="row"><label>Sales Org ($/W)</label><input id="salesPerW" type="number" min="0" step="0.05" value="0.5"></div>
+        <div class="row"><label>Sales Org ($/battery)</label><input id="salesPerBatt" type="number" min="0" step="50" value="1000"></div>
+        <div class="row"><label>Operations Costs ($/W)</label><input id="opsPerW" type="number" min="0" step="0.1" value="1"></div>
+
+        <div class="btns">
+          <button id="p4" class="secondary">Preset: 4 kW + 3 batt</button>
+          <button id="p8" class="secondary">Preset: 8 kW + 3 batt</button>
+          <button id="p12" class="secondary">Preset: 12 kW + 3 batt</button>
+          <button id="reset" class="secondary">Reset Costs</button>
+        </div>
+      </div>
+
+      <!-- Outputs & Visuals (below) -->
+      <div class="card">
+        <div class="section">Results</div>
+        <div class="kpis">
+          <div class="kpi"><div class="label">SGIP (Solar)</div><div id="kSolar" class="value">$0</div></div>
+          <div class="kpi"><div class="label">SGIP (Storage)</div><div id="kStorage" class="value">$0</div></div>
+          <div class="kpi"><div class="label">SGIP Total</div><div id="kTotalSGIP" class="value">$0</div></div>
+          <div class="kpi"><div class="label">Max TEPC (Cutoff)</div><div id="kMaxTEPC" class="value">$0</div></div>
+          <div class="kpi"><div class="label">ITC (Auto)</div><div id="kITC" class="value">$0</div></div>
+          <div class="kpi"><div class="label">Upfront Cash (APP 50%)</div><div id="kAPP" class="value">$0</div></div>
+        </div>
+
+        <table class="table">
+          <thead><tr><th>Line</th><th>Amount</th></tr></thead>
+          <tbody>
+            <tr><td>Project Price (TEPC)</td><td id="tdTEPC" class="amt">$0</td></tr>
+            <tr><td>Operations Costs ($/W)</td><td id="tdOps" class="amt">$0</td></tr>
+            <tr><td>Sales Org Commission ($/W + $/battery)</td><td id="tdSales" class="amt">$0</td></tr>
+            <tr><td>Equipment</td><td id="tdEquip" class="amt">$0</td></tr>
+            <tr><td>EPC Labor</td><td id="tdEPC" class="amt">$0</td></tr>
+            <tr><td>Permits / Interconnection</td><td id="tdPermits" class="amt">$0</td></tr>
+            <tr><td>Overhead / Other</td><td id="tdOther" class="amt">$0</td></tr>
+            <tr><td><b>Net Margin (Excl. Incentives)</b></td><td id="tdNetEx" class="amt"><b>$0</b></td></tr>
+            <tr><td><b>Net Margin (Incl. ITC)</b> <span class="muted">(TEPC + ITC − Costs)</span></td><td id="tdNetIn" class="amt"><b>$0</b></td></tr>
+            <tr><td><b>Margin % (Excl. Incentives)</b></td><td id="tdPctEx" class="amt"><b>0%</b></td></tr>
+            <tr><td><b>Margin % (Incl. ITC)</b></td><td id="tdPctIn" class="amt"><b>0%</b></td></tr>
+          </tbody>
+        </table>
+
+        <div class="charts">
+          <div class="chartCard">
+            <div class="section">SGIP Cap Test Visualization</div>
+            <canvas id="capChart" width="600" height="220"></canvas>
+            <div class="muted">Visualizes <b>TEPC</b> vs <b>SGIP + ITC</b> and splits SGIP into Solar vs Storage.</div>
+          </div>
+          <div class="timelineCard">
+            <div class="tl-header">
+              <div>
+                <div class="section">SGIP Approval Timelines</div>
+                <div class="muted">Fastest & Average (days) — from your 2024 report. Colored by stage.</div>
+              </div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <select id="utility">
+                  <option value="pge">PG&E</option>
+                  <option value="sce">SCE</option>
+                </select>
+                <select id="speed">
+                  <option value="fast">Fastest</option>
+                  <option value="avg">Average</option>
+                </select>
+              </div>
+            </div>
+            <div class="segbar" id="segbar"></div>
+            <div class="legend" id="legend"></div>
+            <div class="muted" id="tlTotal"></div>
+            <div class="stage-desc" id="stageDesc"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const money = (n) => n.toLocaleString(undefined,{ style:'currency', currency:'USD', maximumFractionDigits:0 });
+
+    // Timeline data (from your 2024 sheet)
+    const timelineData = {
+      pge: {
+        fast: { RRF_Review: 0.7, RRF_Process: 21.1, ICF_Review: 1.43, ICF_Process: 11.22, Inspection: 1.86, PPM_Review: 0.0, PPM_Process: 5.5 },
+        avg:  { RRF_Review: 2.1, RRF_Process: 40.8, ICF_Review: 2.55, ICF_Process: 38.75, Inspection: 17.47, PPM_Review: 0.62, PPM_Process: 37.73 }
+      },
+      sce: {
+        fast: { RRF_Review: 0.3, RRF_Process: 2.6, ICF_Review: 0.13, ICF_Process: 4.0, Inspection: 18.71, PPM_Review: 0.0, PPM_Process: 7.67 },
+        avg:  { RRF_Review: 0.9, RRF_Process: 15.7, ICF_Review: 1.46, ICF_Process: 11.22, Inspection: 36.03, PPM_Review: 0.34, PPM_Process: 15.23 }
+      }
+    };
+
+    const stageColors = {
+      RRF_Review: '#60a5fa',  // blue
+      RRF_Process: '#34d399', // green
+      ICF_Review: '#fbbf24',  // amber
+      ICF_Process: '#f472b6', // pink
+      Inspection: '#a78bfa',  // purple
+      PPM_Review: '#fb7185',  // rose
+      PPM_Process: '#22d3ee'  // cyan
+    };
+
+    const stageText = {
+      RRF_Review: '<b>RRF Review:</b> Admin screens Reservation Request for completeness/eligibility.',
+      RRF_Process: '<b>RRF Processing:</b> Reservation approval; if enrolled in APP, <b>50% of SGIP</b> is released at this milestone.',
+      ICF_Review: '<b>ICF Review:</b> Post-install documentation checked (invoices, serials, photos).',
+      ICF_Process: '<b>ICF Processing:</b> Final approval of incentive claim and true-up.',
+      Inspection: '<b>Inspection:</b> Onsite or remote verification of installed system.',
+      PPM_Review: '<b>PPM Review:</b> (If applicable) performance/maintenance plan review.',
+      PPM_Process: '<b>PPM Processing:</b> Close-out steps; final payment issued.'
+    };
+
+    // Inputs
+    const fields = ['kw','batts','kwhPerBatt','solarRate','storageRate','storageCap','tepc','autoTepc','itcPct','useAPP','costEquip','costEPC','costPermits','costOther','salesPerW','salesPerBatt','opsPerW','utility','speed'];
+    const els = Object.fromEntries(fields.map(id => [id, $(id)]));
+
+    function calc(){
+      const kw = parseFloat(els.kw.value)||0;
+      const batts = parseInt(els.batts.value)||0;
+      const kwhPerBatt = parseFloat(els.kwhPerBatt.value)||0;
+      const solarRate = parseFloat(els.solarRate.value)||0;
+      const storageRate = parseFloat(els.storageRate.value)||0;
+      const storageCap = parseFloat(els.storageCap.value)||0;
+      const itcPct = (parseFloat(els.itcPct.value)||0)/100;
+
+      const watts = kw * 1000;
+
+      const solarSGIP = kw * solarRate;
+      const storageKWh = batts * kwhPerBatt;
+      let storageSGIP = storageKWh * storageRate;
+      if(storageCap>0) storageSGIP = Math.min(storageSGIP, storageCap);
+      const totalSGIP = solarSGIP + storageSGIP;
+
+      // Auto TEPC cutoff
+      const maxTEPC = (1 - itcPct) > 0 ? (totalSGIP / (1 - itcPct)) : totalSGIP;
+      if(els.autoTepc.checked){ els.tepc.value = Math.round(maxTEPC); }
+      const tepc = parseFloat(els.tepc.value)||0;
+
+      const itcVal = tepc * itcPct;
+      const appUpfront = els.useAPP.checked ? (0.5 * totalSGIP) : 0;
+
+      // Costs
+      const costEquip = parseFloat(els.costEquip.value)||0;
+      const costEPC = parseFloat(els.costEPC.value)||0;
+      const costPermits = parseFloat(els.costPermits.value)||0;
+      const costOther = parseFloat(els.costOther.value)||0;
+      const hardCosts = costEquip + costEPC + costPermits + costOther;
+
+      // Commissions / Ops
+      const salesPerW = parseFloat(els.salesPerW.value)||0;
+      const salesPerBatt = parseFloat(els.salesPerBatt.value)||0;
+      const opsPerW = parseFloat(els.opsPerW.value)||0;
+
+      const salesComm = (salesPerW * watts) + (salesPerBatt * batts);
+      const opsCost = opsPerW * watts;
+      const totalCost = hardCosts + salesComm + opsCost;
+
+      // Margins
+      const netEx = tepc - totalCost;
+      const netIn = tepc + itcVal - totalCost; // ITC as value, cashflow separate
+      const pctEx = tepc>0 ? (netEx/tepc)*100 : 0;
+      const pctIn = (tepc + itcVal) > 0 ? (netIn/(tepc + itcVal))*100 : 0;
+
+      // KPI render
+      $('kSolar').textContent = money(solarSGIP);
+      $('kStorage').textContent = money(storageSGIP);
+      $('kTotalSGIP').textContent = money(totalSGIP);
+      $('kMaxTEPC').textContent = money(maxTEPC);
+      $('kITC').textContent = money(itcVal);
+      $('kAPP').textContent = money(appUpfront);
+
+      $('tdTEPC').textContent = money(tepc);
+      $('tdOps').textContent = money(opsCost);
+      $('tdSales').textContent = money(salesComm);
+      $('tdEquip').textContent = money(costEquip);
+      $('tdEPC').textContent = money(costEPC);
+      $('tdPermits').textContent = money(costPermits);
+      $('tdOther').textContent = money(costOther);
+      $('tdNetEx').textContent = money(netEx);
+      $('tdNetIn').textContent = money(netIn);
+      $('tdPctEx').textContent = pctEx.toFixed(1) + '%';
+      $('tdPctIn').textContent = pctIn.toFixed(1) + '%';
+
+      drawCapChart(tepc, solarSGIP, storageSGIP, itcVal);
+      drawTimeline();
+    }
+
+    // Simple bar chart (no libraries)
+    function drawCapChart(tepc, solar, storage, itc){
+      const cnv = $('capChart');
+      const ctx = cnv.getContext('2d');
+      const W = cnv.width, H = cnv.height; ctx.clearRect(0,0,W,H);
+      const pad = 40; const barW = 120; const gap = 50;
+      const maxVal = Math.max(tepc, solar+storage+itc) * 1.15;
+      const y = (v)=> H - pad - (v/maxVal)*(H-pad*2);
+
+      // Axes
+      ctx.strokeStyle = 'rgba(255,255,255,.22)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(pad, pad); ctx.lineTo(pad, H-pad); ctx.lineTo(W-pad, H-pad); ctx.stroke();
+
+      // Bars
+      const x1 = pad+20; // TEPC
+      const x2 = x1 + barW + gap; // Incentives
+
+      // TEPC bar
+      ctx.fillStyle = 'rgba(167,243,208,.6)';
+      ctx.fillRect(x1, y(tepc), barW, H-pad - y(tepc));
+      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = '12px sans-serif'; ctx.fillText('TEPC', x1, H-pad+14);
+
+      // Incentives stack (Storage + Solar + ITC)
+      let base = 0;
+      function stack(val, color){
+        const h = H-pad - y(val+base);
+        ctx.fillStyle = color; ctx.fillRect(x2, y(val+base), barW, h);
+        base += val;
+      }
+      stack(storage, 'rgba(110,231,255,.55)');
+      stack(solar, 'rgba(34,197,94,.55)');
+      stack(itc, 'rgba(250,204,21,.55)');
+      ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText('SGIP+ITC', x2, H-pad+14);
+
+      // Labels
+      ctx.fillText(money(tepc), x1, y(tepc)-6);
+      ctx.fillText(money(storage+solar+itc), x2, y(storage+solar+itc)-6);
+
+      // Legend
+      const legend = [ ['Storage SGIP','rgba(110,231,255,.55)'], ['Solar SGIP','rgba(34,197,94,.55)'], ['ITC','rgba(250,204,21,.55)'] ];
+      let lx = x2 + barW + 30, ly = pad + 10;
+      legend.forEach(([name,col])=>{ ctx.fillStyle = col; ctx.fillRect(lx, ly, 14, 14); ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText(name, lx+20, ly+12); ly += 20; });
+    }
+
+    // Timeline drawing — colored segments + descriptions
+    function drawTimeline(){
+      const util = els.utility.value; const speed = els.speed.value; const data = timelineData[util][speed];
+      const steps = [ ['RRF Review','RRF_Review'], ['RRF Process','RRF_Process'], ['ICF Review','ICF_Review'], ['ICF Process','ICF_Process'], ['Inspection','Inspection'], ['PPM Review','PPM_Review'], ['PPM Process','PPM_Process'] ];
+      const total = Object.values(data).reduce((a,b)=>a+b,0);
+      const segbar = $('segbar'); segbar.innerHTML='';
+      steps.forEach(([label,key])=>{
+        const days = data[key];
+        const seg = document.createElement('div');
+        seg.className = 'seg';
+        seg.style.width = (days/total*100).toFixed(2)+'%';
+        seg.style.background = stageColors[key] || 'rgba(110,231,255,.4)';
+        seg.title = `${label}: ${days.toFixed(1)} days`;
+        segbar.appendChild(seg);
+      });
+      const legend = $('legend'); legend.innerHTML = steps.map(([label,key])=>`<span class="tag" style="border-color:${stageColors[key]}; color:#fff;">${label}: <b>${data[key].toFixed(1)}</b>d</span>`).join('');
+      $('tlTotal').textContent = `${util.toUpperCase()} — ${speed==='fast'?'Fastest':'Average'} total: ${total.toFixed(1)} days`;
+
+      // Stage descriptions
+      const desc = $('stageDesc');
+      desc.innerHTML = steps.map(([label,key])=>`<p style="border-left:3px solid ${stageColors[key]}; padding-left:8px;">${stageText[key]}</p>`).join('');
+    }
+
+    function preset(kw){ els.kw.value = kw; els.batts.value = 3; els.kwhPerBatt.value = 9.7; calc(); }
+
+    ['kw','batts','kwhPerBatt','solarRate','storageRate','storageCap','tepc','autoTepc','itcPct','useAPP','costEquip','costEPC','costPermits','costOther','salesPerW','salesPerBatt','opsPerW','utility','speed'].forEach(id=>{
+      $(id).addEventListener('input', calc); $(id).addEventListener('change', calc);
+    });
+    $('p4').addEventListener('click', ()=> preset(4));
+    $('p8').addEventListener('click', ()=> preset(8));
+    $('p12').addEventListener('click', ()=> preset(12));
+    $('reset').addEventListener('click', ()=>{ ['costEquip','costEPC','costPermits','costOther','salesPerW','salesPerBatt','opsPerW'].forEach(id=>{ let v={costEquip:42000,costEPC:9000,costPermits:1000,costOther:2000,salesPerW:0.5,salesPerBatt:1000,opsPerW:1}[id]; $(id).value=v;}); calc(); });
+
+    // Init
+    calc();
+  </script>
+</body>
+</html>
